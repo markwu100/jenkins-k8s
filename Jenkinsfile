@@ -24,7 +24,7 @@ pipeline {
         stage('Deploy to k8s'){
             steps{
                sh "chmod +x changeTag.sh"
-               sh "./changeTag.sh $(DOCKER_TAG)"
+               sh "./changeTag.sh ${DOCKER_TAG}"
                sshagent(['k8s-cicd']) {
                     sh "scp -o StrictHostKeyChecking=no service.yml pods.yml admin@54.252.219.55:/home/admin"
                     script {
