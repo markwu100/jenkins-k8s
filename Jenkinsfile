@@ -9,7 +9,7 @@ pipeline {
     stages{
         stage('Build Docker Image'){
             steps{
-                sh "docker build . -t ${IMAGE_URL_WITH_TAG}"
+                sh "docker build . -t ${REGISTRY}:${DOCKER_TAG}"
             }
         }
         stage('Docker Push') {
