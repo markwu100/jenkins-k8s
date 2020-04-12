@@ -16,7 +16,7 @@ pipeline {
             steps{
                 script {
                     docker.withRegistry( '', REGISTRYCREDENTIAL ) {
-                    dockerImage.push()
+                    sh "docker push ${REGISTRY}:${DOCKER_TAG}"
                     }
                 }
             }
