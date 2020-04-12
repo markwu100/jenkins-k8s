@@ -2,8 +2,9 @@ pipeline {
     agent any
     environment{
         DOCKER_TAG = getDockerTag()
-        NEXUS_URL  = "172.31.34.232:8080"
-        IMAGE_URL_WITH_TAG = "${NEXUS_URL}/node-app:${DOCKER_TAG}"
+        REGISTRY = "markwu100/nodeapp"
+        REGISTRYCREDENTIAL = 'dockerhub'
+        dockerImage = ''
     }
     stages{
         stage('Build Docker Image'){
@@ -11,24 +12,28 @@ pipeline {
                 sh "docker build . -t ${IMAGE_URL_WITH_TAG}"
             }
         }
-        stage('Nexus Push'){
+        stage('Docker Push') {
             steps{
-                withCredentials([string(credentialsId: 'nexus-pwd', variable: 'nexusPwd')]) {
-                    sh "docker login -u admin -p ${nexusPwd} ${NEXUS_URL}"
-                    sh "docker push ${IMAGE_URL_WITH_TAG}"
+                script {
+                    docker.withRegistry( '', REGISTRYCREDENTIAL ) {
+                    dockerImage.push()
+                    }
                 }
             }
         }
-        stage('Docker Deploy Dev'){
+        stage('Deploy to k8s'){
             steps{
-                sshagent(['tomcat-dev']) {
-                    withCredentials([string(credentialsId: 'nexus-pwd', variable: 'nexusPwd')]) {
-                        sh "ssh ec2-user@172.31.0.38 docker login -u admin -p ${nexusPwd} ${NEXUS_URL}"
+               sh "chmod +x changeTag.sh"
+               sh "./changeTag.sh $(DOCKER_TAG)"
+               sshagent(['k8s-cicd']) {
+                    sh "scp -o StrictHostKeyChecking=no service.yml pods.yml admin@54.252.219.55:/home/admin"
+                    script {
+                        try {
+                            sh "ssh admin@54.252.219.55 kubectl apply -f ."
+                        }catch(error){
+                            sh "ssh admin@54.252.219.55 kubectl create -f ."
+                        }
                     }
-					// Remove existing container, if container name does not exists still proceed with the build
-					sh script: "ssh ec2-user@172.31.0.38 docker rm -f nodeapp",  returnStatus: true
-                    
-                    sh "ssh ec2-user@172.31.0.38 docker run -d -p 8080:8080 --name nodeapp ${IMAGE_URL_WITH_TAG}"
                 }
             }
         }
